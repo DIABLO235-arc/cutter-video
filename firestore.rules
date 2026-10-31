@@ -1,0 +1,205 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 4.1: Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isValidVoucherId(id) {
+      return id is string
+        && id.size() >= 14
+        && id.size() <= 32
+        && id.matches('^CCPRO-[A-Z0-9]{3,5}-[A-Z0-9]{4}-[A-Z0-9]{4}$');
+    }
+
+    function isValidUid(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Bootstrapped Owner Admin (vibeclip11@gmail.com) with strict email_verified guard and zero DB reads
+    function isOwnerAdmin() {
+      return isVerifiedUser()
+        && request.auth.token.email is string
+        && request.auth.token.email.size() <= 128
+        && request.auth.token.email == 'vibeclip11@gmail.com';
+    }
+
+    // Validation Blueprint 1: LicenseVoucher (Zero PII)
+    function isValidLicenseVoucher(data) {
+      return data.keys().hasAll([
+          'code',
+          'planLabel',
+          'durationDays',
+          'status',
+          'creatorUid',
+          'redeemedByUid',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'code',
+          'planLabel',
+          'durationDays',
+          'status',
+          'creatorUid',
+          'redeemedByUid',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidVoucherId(data.code)
+        && data.planLabel is string
+        && data.planLabel.size() >= 3
+        && data.planLabel.size() <= 40
+        && data.durationDays is int
+        && data.durationDays >= 1
+        && data.durationDays <= 36500
+        && data.status is string
+        && data.status.size() <= 16
+        && (data.status == 'active' || data.status == 'redeemed' || data.status == 'revoked')
+        && isValidUid(data.creatorUid)
+        && data.redeemedByUid is string
+        && data.redeemedByUid.size() <= 128
+        && (data.redeemedByUid == '' || isValidUid(data.redeemedByUid))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint 2: AdminBuyerRecord (Isolated Offline Buyer PII)
+    function isValidAdminBuyerRecord(data) {
+      return data.keys().hasAll([
+          'voucherCode',
+          'buyerName',
+          'buyerContact',
+          'paymentNote',
+          'ownerUid',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'voucherCode',
+          'buyerName',
+          'buyerContact',
+          'paymentNote',
+          'ownerUid',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidVoucherId(data.voucherCode)
+        && data.buyerName is string
+        && data.buyerName.size() >= 1
+        && data.buyerName.size() <= 80
+        && data.buyerContact is string
+        && data.buyerContact.size() <= 80
+        && data.paymentNote is string
+        && data.paymentNote.size() <= 160
+        && isValidUid(data.ownerUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Connection Probe Path
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, create, update, delete: if false;
+    }
+
+    // Collection 1: Publicly Redeemable Pro License Vouchers (No PII)
+    match /licenseVouchers/{voucherId} {
+      allow get: if isVerifiedUser() && isValidVoucherId(voucherId);
+
+      allow list: if isOwnerAdmin() && existing().creatorUid == request.auth.uid;
+
+      allow create: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && isValidLicenseVoucher(incoming())
+        && incoming().code == voucherId
+        && incoming().creatorUid == request.auth.uid
+        && incoming().status == 'active'
+        && incoming().redeemedByUid == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidVoucherId(voucherId)
+        && isValidLicenseVoucher(incoming())
+        && incoming().code == existing().code
+        && incoming().creatorUid == existing().creatorUid
+        && incoming().planLabel == existing().planLabel
+        && incoming().durationDays == existing().durationDays
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            existing().status == 'active'
+            && incoming().status == 'redeemed'
+            && incoming().redeemedByUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'redeemedByUid', 'updatedAt'])
+          )
+          ||
+          (
+            isOwnerAdmin()
+            && existing().creatorUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'redeemedByUid', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && existing().creatorUid == request.auth.uid;
+    }
+
+    // Collection 2: Isolated Offline Buyer PII Records (Strictly Owner Admin Only)
+    match /adminBuyerRecords/{voucherId} {
+      allow get: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && existing().ownerUid == request.auth.uid;
+
+      allow list: if isOwnerAdmin() && existing().ownerUid == request.auth.uid;
+
+      allow create: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && isValidAdminBuyerRecord(incoming())
+        && incoming().voucherCode == voucherId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/licenseVouchers/$(voucherId));
+
+      allow update: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && isValidAdminBuyerRecord(incoming())
+        && existing().ownerUid == request.auth.uid
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().voucherCode == existing().voucherCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['buyerName', 'buyerContact', 'paymentNote', 'updatedAt']);
+
+      allow delete: if isOwnerAdmin()
+        && isValidVoucherId(voucherId)
+        && existing().ownerUid == request.auth.uid;
+    }
+  }
+}

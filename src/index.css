@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-blue: #4F6EF7;
+    --brand-blue-hover: #3D5CE5;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1E293B;
+    background-color: #FFFFFF;
+  }
+
+  .font-tabular {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom accessible dual-thumb range input styling */
+input[type='range'].clip-range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+  background: transparent;
+}
+
+input[type='range'].clip-range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #4F6EF7;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(79, 110, 247, 0.45);
+  cursor: grab;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input[type='range'].clip-range-thumb::-webkit-slider-thumb:hover {
+  transform: scale(1.14);
+}
+
+input[type='range'].clip-range-thumb::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.2);
+}
+
+input[type='range'].clip-range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #4F6EF7;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(79, 110, 247, 0.45);
+  cursor: grab;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}

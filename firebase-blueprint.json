@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "LicenseVoucher": {
+      "title": "LicenseVoucher",
+      "description": "Publicly redeemable Pro license voucher without PII, created exclusively by the application owner for offline buyers.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Formatted offline Pro activation code.",
+          "minLength": 14,
+          "maxLength": 32,
+          "pattern": "^CCPRO-[A-Z0-9]{3,5}-[A-Z0-9]{4}-[A-Z0-9]{4}$"
+        },
+        "planLabel": {
+          "type": "string",
+          "description": "Display label for the offline Pro package duration.",
+          "minLength": 3,
+          "maxLength": 40
+        },
+        "durationDays": {
+          "type": "integer",
+          "description": "Number of active Pro days granted upon redemption."
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle status of the voucher.",
+          "enum": ["active", "redeemed", "revoked"]
+        },
+        "creatorUid": {
+          "type": "string",
+          "description": "UID of the owner admin who generated the voucher.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "redeemedByUid": {
+          "type": "string",
+          "description": "UID of the authenticated user who redeemed the voucher, or empty string when unredeemed.",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the voucher was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the voucher was last updated."
+        }
+      },
+      "required": [
+        "code",
+        "planLabel",
+        "durationDays",
+        "status",
+        "creatorUid",
+        "redeemedByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminBuyerRecord": {
+      "title": "AdminBuyerRecord",
+      "description": "Strictly isolated offline buyer PII and payment notes accessible only to the owner admin.",
+      "type": "object",
+      "properties": {
+        "voucherCode": {
+          "type": "string",
+          "description": "Matching voucher code ID in licenseVouchers.",
+          "minLength": 14,
+          "maxLength": 32,
+          "pattern": "^CCPRO-[A-Z0-9]{3,5}-[A-Z0-9]{4}-[A-Z0-9]{4}$"
+        },
+        "buyerName": {
+          "type": "string",
+          "description": "Offline buyer name recorded by the owner.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "buyerContact": {
+          "type": "string",
+          "description": "Offline buyer WhatsApp or contact note.",
+          "minLength": 0,
+          "maxLength": 80
+        },
+        "paymentNote": {
+          "type": "string",
+          "description": "Offline transaction note (e.g. cash, bank transfer).",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "ownerUid": {
+          "type": "string",
+          "description": "UID of the owner admin.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the buyer record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the buyer record was updated."
+        }
+      },
+      "required": [
+        "voucherCode",
+        "buyerName",
+        "buyerContact",
+        "paymentNote",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/licenseVouchers/{voucherId}": {
+      "schema": { "$ref": "#/entities/LicenseVoucher" },
+      "description": "Stores offline Pro activation codes without PII."
+    },
+    "/adminBuyerRecords/{voucherId}": {
+      "schema": { "$ref": "#/entities/AdminBuyerRecord" },
+      "description": "Stores isolated offline buyer PII and payment records accessible strictly to the owner."
+    }
+  }
+}

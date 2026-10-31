@@ -1,0 +1,6 @@
+{
+  "name": "ClipsCutter AI",
+  "description": "Online YouTube & Video Cutter with 4K raw stream-copy trimming, AI Auto-Clipper for viral highlights, and direct social media publishing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
